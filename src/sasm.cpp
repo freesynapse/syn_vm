@@ -31,24 +31,45 @@ string_view_t read_sasm_file(const char *file_path)
 }
 
 //
-void translate_to_bytecode(string_view_t sv)
+void translate_to_bytecode(vm_t *vm, string_view_t sv_source)
 {
-    // read souce by lines
-    while (sv.len > 0)
+    // read souce by svs
+    while (sv_source.len > 0)
     {
-        string_view_t line = sv_trim(sv_chop_by_delim(&sv, '\n'));
-        // convert line to byte-code instruction
-        if (line.len > 0)
+        string_view_t sv = sv_trim(sv_chop_by_delim(&sv_source, '\n'));
+        // convert sv to byte-code instruction
+        if (sv.len > 0)
         {
-            printf("#%.*s#\n", (int)line.len, line.data);
-            
+            // extract instruction and operand, sv contains the operand, if any
+            string_view_t inst = sv_chop_by_delim(&sv, ' ');
+            if (sv_cmp_cstr(inst, "nop"))
+            {
+                vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_NOP,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "push"))
+            {
+                vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_PUSH,
+                    .operand = sv_to_int64(sv),
+                });
+            }
+            else if (sv_cmp_cstr(inst, "halt"))
+            {
+                vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_HALT,
+                    .operand = 0,
+                });
+            }
         }
     }
-    // printf("#%.*s#\n", (int)sv.len, sv.data);
+
 }
 
 //
-void usage(const char *program) { fprintf(stderr, "Usage: %s <input.sasm>\n", program); }
+void usage(const char *program) { fprintf(stderr, "Usage: %s <input.sasm> <output.bin>\n", program); }
 char *shift_args(int *argc, char **argv[])
 {
     *argc -= 1;
@@ -61,18 +82,22 @@ char *shift_args(int *argc, char **argv[])
 int main(int argc, char *argv[])
 {
     char *program = shift_args(&argc, &argv);
-    if (argc < 1)
+    if (argc < 2)
     {
         usage(program);
-        LOG_ERROR("No input file provided.\n");
+        LOG_ERROR("No input/output file provided.\n");
     }
     
     char *input_file = shift_args(&argc, &argv);
-    string_view_t sv = read_sasm_file(input_file);
+    string_view_t source = read_sasm_file(input_file);
 
-    printf("source:\n%.*s\n", (int)sv.len, sv.data);
+    translate_to_bytecode(&vm, source);
 
-    translate_to_bytecode(sv);
+    // DEBUG
+    vm_dump_program(&vm);
+
+    char *output_file = shift_args(&argc, &argv);
+    vm_write_binary_to_file(&vm, output_file);
 
     return 0;
 }

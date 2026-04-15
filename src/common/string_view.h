@@ -12,6 +12,31 @@ typedef struct
 
 } string_view_t;
 
+char _buffer[1024];
+
+//
+bool sv_cmp(string_view_t sv0, string_view_t sv1)
+{
+    if (sv0.len != sv1.len)
+        return false;
+    
+    return memcmp(sv0.data, sv1.data, sv0.len) == 0;
+}
+
+//
+bool sv_cmp_cstr(string_view_t sv, const char *cstr)
+{
+    return memcmp(cstr, sv.data, sv.len) == 0;
+}
+
+//
+int64_t sv_to_int64(string_view_t sv)
+{
+    memset(_buffer, '\0', 1024);
+    memcpy(_buffer, sv.data, sv.len);
+    return (int64_t)atoi(_buffer);
+}
+
 //
 string_view_t sv_from_cstr(const char *cstr)
 {
