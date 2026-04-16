@@ -1,6 +1,9 @@
+    jmp begin
+begin:
     push 0
     push 1
+loop:
     scpy 1
     scpy 1
     iadd
-    jmp 2
+    jmp loop

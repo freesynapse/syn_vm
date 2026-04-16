@@ -6,44 +6,64 @@
 #include "common/fileio.h"
 
 //
-sv_t read_sasm_file(const char *file_path)
+#define MAX_JMP_TABLES_SIZE 64
+typedef struct
 {
-    LOG_INFO("reading sasm source from '%s'...", file_path);
+    sv_t label;
+    uint32_t src_lineno;
+} label_addr_t;
 
-    FILE *fp;
-    if ((fp = fopen(file_path, "r")) == NULL) LOG_ERROR("could not open file '%s'.\n", file_path);
-
-    fseek(fp, 0, SEEK_END);
-    if (ferror(fp)) LOG_ERROR("could not read file '%s'.\n", file_path);
-
-    size_t file_size = ftell(fp);
-    if (ferror(fp)) LOG_ERROR("could not read file '%s'.\n", file_path);
-
-    fseek(fp, 0, SEEK_SET);
-    if (ferror(fp)) LOG_ERROR("could not read file '%s'.\n", file_path);
-
-    // TODO : free this memory
-    char *buffer = (char *)malloc(file_size + 1);
-    fread(buffer, file_size, 1, fp);
-    buffer[file_size] = '\0';
-
-    fclose(fp);
-
-    sv_t sv = sv_from_cstr(buffer);
-    return sv;
-
-}
+typedef struct
+{
+    label_addr_t labels[MAX_JMP_TABLES_SIZE];
+    size_t count = 0;
+} label_address_table_t;
+//
+typedef struct
+{
+    uint32_t jmp_inst_addr;
+    sv_t dest_label;
+} jmp_addr_t;
+typedef struct
+{
+    jmp_addr_t addrs[MAX_JMP_TABLES_SIZE];
+    size_t count;
+} jmp_resolve_table_t;
+//
+static label_address_table_t label_address_table;
+static jmp_resolve_table_t jmp_resolve_table;
 
 //
 void translate_to_bytecode(synvm_t *vm, sv_t sv_source)
 {
     // read souce by svs
+    LOG_INFO("parsing sasm.\n");
+    uint32_t lineno = 0;
     while (sv_source.len > 0)
     {
         sv_t sv = sv_trim(sv_chop_by_delim(&sv_source, '\n'));
+
+        // remove comments, starting with ';'
+        sv = sv_chop_by_delim(&sv, ';');
+        sv = sv_trim(sv);
+
+        if (sv.data[0] == ';')
+            continue;
+        
         // convert sv to byte-code instruction
         if (sv.len > 0)
         {
+            // label
+            if (sv_find_char(sv, ':') > 0)
+            {
+                label_address_table.labels[label_address_table.count] = {
+                    .label = sv_chop_by_delim(&sv, ':'),
+                    .src_lineno = lineno
+                };
+                label_address_table.count++;
+                continue;
+            }
+
             // extract instruction and operand, sv contains the operand, if any
             sv_t inst = sv_chop_by_delim(&sv, ' ');
             if (sv_cmp_cstr(inst, "nop"))
@@ -57,7 +77,9 @@ void translate_to_bytecode(synvm_t *vm, sv_t sv_source)
             {
                 syn_vm_push_program_instruction(vm, (inst_t) {
                     .type = INST_PUSH,
-                    .operand = sv_to_int64(sv),
+                    // TODO : check if floats etc
+                    //.operand { .i64 = sv_to_int64(sv) },
+                    .operand = number_literal_as_word(sv),
                 });
             }
             else if (sv_cmp_cstr(inst, "iadd"))
@@ -67,19 +89,76 @@ void translate_to_bytecode(synvm_t *vm, sv_t sv_source)
                     .operand = 0,
                 });
             }
+            else if (sv_cmp_cstr(inst, "isub"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_ISUB,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "imul"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_IMUL,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "idiv"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_IDIV,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "fadd"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_FADD,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "fsub"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_FSUB,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "fmul"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_FMUL,
+                    .operand = 0,
+                });
+            }
+            else if (sv_cmp_cstr(inst, "fdiv"))
+            {
+                syn_vm_push_program_instruction(vm, (inst_t) {
+                    .type = INST_FDIV,
+                    .operand = 0,
+                });
+            }
             else if (sv_cmp_cstr(inst, "scpy"))
             {
                 syn_vm_push_program_instruction(vm, (inst_t) {
                     .type = INST_SCPY,
-                    .operand = sv_to_int64(sv),
+                    .operand = number_literal_as_word(sv),
                 });
 
             }
             else if (sv_cmp_cstr(inst, "jmp"))
             {
+                // save programm address for 2nd pass
+                jmp_resolve_table.addrs[jmp_resolve_table.count++] = {
+                    .jmp_inst_addr = vm->program_size,
+                    .dest_label = sv,
+                };
+
+                //
                 syn_vm_push_program_instruction(vm, (inst_t) {
                     .type = INST_JMP,
-                    .operand = sv_to_int64(sv),
+                    // .operand = number_literal_as_word(sv),
+                    .operand = 0, // for now
                 });
             }
             else if (sv_cmp_cstr(inst, "halt"))
@@ -92,8 +171,23 @@ void translate_to_bytecode(synvm_t *vm, sv_t sv_source)
             else
                 LOG_ERROR("unknown instruction '%.*s'.\n", (int)inst.len, inst.data);
         }
+
+        lineno++;
     }
 
+    LOG_INFO("resolving jump address table.\n");
+    for (size_t i = 0; i < jmp_resolve_table.count; i++)
+    {
+        jmp_addr_t jmp_addr = jmp_resolve_table.addrs[i];
+        for (size_t j = 0; j < label_address_table.count; j++)
+        {
+            label_addr_t label_addr = label_address_table.labels[j];
+            if (sv_cmp(jmp_addr.dest_label, label_addr.label))
+                vm->program[jmp_addr.jmp_inst_addr].operand = { .i64=label_addr.src_lineno };
+        }
+    }
+
+    
 }
 
 //

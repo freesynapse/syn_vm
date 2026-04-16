@@ -12,7 +12,18 @@ typedef struct
 
 } sv_t;
 
-char _buffer[1024];
+#define TMP_BUFFER_SIZE 1024
+char _tmp_buffer[TMP_BUFFER_SIZE];
+
+//
+int sv_find_char(sv_t sv, char token)
+{
+    int i = 0;
+    while ((size_t)i < sv.len && sv.data[i] != token) i++;
+    if ((size_t)i == sv.len)
+        return -1;
+    return i;
+}
 
 //
 bool sv_cmp(sv_t sv0, sv_t sv1)
@@ -32,9 +43,9 @@ bool sv_cmp_cstr(sv_t sv, const char *cstr)
 //
 int64_t sv_to_int64(sv_t sv)
 {
-    memset(_buffer, '\0', 1024);
-    memcpy(_buffer, sv.data, sv.len);
-    return (int64_t)atoi(_buffer);
+    memset(_tmp_buffer, '\0', TMP_BUFFER_SIZE);
+    memcpy(_tmp_buffer, sv.data, sv.len);
+    return (int64_t)atoi(_tmp_buffer);
 }
 
 //

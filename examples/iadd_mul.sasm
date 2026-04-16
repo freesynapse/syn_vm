@@ -1,6 +1,6 @@
 push 1
 push 2
-push 2
 iadd
-iadd
+push 4
+imul
 halt
