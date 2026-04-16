@@ -16,7 +16,7 @@ sasm: ./src/sasm.cpp ./src/syn_vm.h $(COMMON)
 
 ##
 .PHONY=examples
-examples: sasm fib iadd_mul fadd_mul
+examples: sasm fib iadd_mul fadd_mul pi e
 
 iadd_mul: ./examples/iadd_mul.sasm
 	./sasm -i ./examples/iadd_mul.sasm -o ./examples/iadd_mul.bin
@@ -32,6 +32,15 @@ fib: ./examples/fib.sasm
 	./sasm -i ./examples/fib.sasm -o ./examples/fib.bin
 	./synvm ./examples/fib.bin -l 42
 	@echo
+
+pi: ./examples/pi.sasm
+	./sasm -i ./examples/pi.sasm -o ./examples/pi.bin
+	./synvm ./examples/pi.bin
+
+e: ./examples/e.sasm
+	./sasm -i ./examples/e.sasm -o ./examples/e.bin
+	./synvm ./examples/e.bin
+
 
 clean:
 	rm synvm sasm ./examples/*.bin

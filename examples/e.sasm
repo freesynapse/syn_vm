@@ -1,0 +1,39 @@
+; n+1.0
+; n!*(n+1.0)
+; sum+1.0/n!
+
+; sum(1/n!)
+; 1/1 + 1/1 + 1/(1 * 2) + 1/(1 * 2 * 3) + ...
+
+    push 1.0       ; n
+    push 1.0       ; n!
+    push 1.0       ; sum
+loop:
+    push 1.0
+    scpy 2
+    fdiv
+    fadd
+
+    swap 2
+    push 1.0
+    fadd
+    scpy 0
+    swap 2
+    fmul
+
+    swap 1
+    swap 2
+
+    scpy 2
+    push 100.0
+    swap 1
+    fge
+
+    jmp_if loop
+
+    swap 1
+    drop
+    swap 1
+    drop
+
+    halt
