@@ -1,0 +1,6 @@
+    push 0
+    push 1
+    scpy 1
+    scpy 1
+    iadd
+    jmp 2
